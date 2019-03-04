@@ -26,7 +26,7 @@ io.on('connection', function (socket) {
             os.cpuUsage(function (v) {
                 socket.emit('cpuUtil', v * 100)
             });
-        }, 100)
+        }, 1000)
     }
     catch (e) { console.log(e) }
 })

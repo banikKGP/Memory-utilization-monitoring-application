@@ -29,18 +29,43 @@
             font-weight: bold;
             fill: #666;
         }
+
+        body {
+            font: 10px sans-serif;
+        }
+
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: #000;
+            shape-rendering: crispEdges;
+        }
+
+        .x.axis path {
+            display: none;
+        }
+
+        .line {
+            fill: none;
+            stroke: steelblue;
+            stroke-width: 1.5px;
+        }
     </style>
 </head>
 
 <body>
     <div>
+        <div id="cpu-line-chart">
+            <svg id="cpu"></svg>
+            CPU Line Chart
+        </div>
         <div id="power-gauge-ramutil">
             <p>RAM Utilization</p>
         </div>
         <div id="power-gauge-cpuutil">
             <p>CPU Utilization</p>
         </div>
-        <div id="graph1" class="aGraph" style="position:relative;width:100%;height:400px"></div>
+
     </div>
 
 
@@ -114,7 +139,9 @@
                     .domain([config.minValue, config.maxValue]);
 
                 ticks = scale.ticks(config.majorTicks);
-                tickData = d3.range(config.majorTicks).map(function () { return 1 / config.majorTicks; });
+                tickData = d3.range(config.majorTicks).map(function () {
+                    return 1 / config.majorTicks;
+                });
 
                 arc = d3.svg.arc()
                     .innerRadius(r - config.ringWidth - config.ringInset)
@@ -173,18 +200,20 @@
                     })
                     .text(config.labelFormat);
 
-                var lineData = [[config.pointerWidth / 2, 0],
-                [0, -pointerHeadLength],
-                [-(config.pointerWidth / 2), 0],
-                [0, config.pointerTailLength],
-                [config.pointerWidth / 2, 0]];
+                var lineData = [
+                    [config.pointerWidth / 2, 0],
+                    [0, -pointerHeadLength],
+                    [-(config.pointerWidth / 2), 0],
+                    [0, config.pointerTailLength],
+                    [config.pointerWidth / 2, 0]
+                ];
                 var pointerLine = d3.svg.line().interpolate('monotone');
                 var pg = svg.append('g').data([lineData])
                     .attr('class', 'pointer')
                     .attr('transform', centerTx);
 
                 pointer = pg.append('path')
-                    .attr('d', pointerLine/*function(d) { return pointerLine(d) +'Z';}*/)
+                    .attr('d', pointerLine /*function(d) { return pointerLine(d) +'Z';}*/ )
                     .attr('transform', 'rotate(' + config.minAngle + ')');
 
                 update(newValue === undefined ? 0 : newValue);
@@ -241,10 +270,6 @@
             function updateCpuUtil(data) {
                 // just pump in random data here...
                 powerGaugeCpuUtil.update(data);
-                parsedCpuUtil.push({
-                    date: new Date().getSeconds(), //date
-                    value: data //convert string to number
-                });
             }
 
             // var margin = { top: 30, right: 20, bottom: 30, left: 50 },
@@ -299,7 +324,6 @@
             })
             socket.on('cpuUtil', function (data) {
                 updateCpuUtil(data);
-                console.log(data);
             })
         }
 
@@ -310,6 +334,147 @@
         } else {
             onDocumentReady();
         }
+    </script>
+
+    <script>
+        var timeoutId = 0;
+        var data = [];
+
+        var margin = {
+                top: 20,
+                right: 20,
+                bottom: 30,
+                left: 50
+            },
+            width = 1000 - margin.left - margin.right,
+            height = 500 - margin.top - margin.bottom;
+
+        var parseDate = d3.time.format("%H:%M:%S").parse;
+
+        var xcenter = width / 2;
+
+        var x = d3.time.scale()
+            .range([0, width]);
+
+        var y = d3.scale.linear()
+            .range([height, 0]);
+
+        var xAxis = d3.svg.axis()
+            .scale(x)
+            .orient("bottom")
+            .tickFormat(d3.time.format("%S"));
+
+        var yAxis = d3.svg.axis()
+            .scale(y)
+            .orient("left");
+
+        var line = d3.svg.line()
+            .x(function (d) {
+                return x(d.creatTime);
+            })
+            .y(function (d) {
+                return y(d.cpuTime);
+            });
+
+        // function
+
+        function myGetTime() {
+            var dd = new Date();
+            var hh = dd.getHours();
+            var mm = dd.getMinutes();
+            var ss = dd.getSeconds();
+            return hh + ":" + mm + ":" + ss;
+        }
+
+        function getRandomArbitrary(min, max) {
+            return Math.round(Math.random() * (max - min) + min) - 1;
+        }
+
+        function getTime(data, d) {
+            if (data.length === 25) {
+                // when length of data equal 60 then pop data[0]
+                data.shift();
+            }
+            data.push({
+                "creatTime": myGetTime(),
+                "cpuTime": d,
+            });
+        }
+
+        var socket = io.connect('http://localhost:8001');
+        socket.on('cpuUtil', function (d) {
+            getTime(data, d);
+            render();
+            // updateCpuUtil(data);
+        })
+
+        // function update() {
+        //     getTime(data);
+        //     render();
+        //     timeoutId = setTimeout("update()", 1000);
+        // }
+
+        function render() {
+
+            d3.select("#cpu")
+                .remove();
+
+            var svg = d3.select("#cpu-line-chart").append("svg")
+                .attr("id", "cpu")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom + 40)
+                .append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+            data.forEach(function (d) {
+                if (typeof d.creatTime === "string") {
+                    d.cpuTime = +d.cpuTime;
+                    d.creatTime = parseDate(d.creatTime);
+                }
+
+            });
+
+            x.domain(d3.extent(data, function (d) {
+                return d.creatTime;
+            }));
+            y.domain(d3.extent(data, function (d) {
+                return d.cpuTime;
+            }));
+
+            svg.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate(0," + height + ")")
+                .style("text-anchor", "end")
+                .call(xAxis)
+                .append("text")
+                .attr("transform", "rotate(0)")
+                .attr("y", 40)
+                .attr("dx", xcenter)
+                .attr("font-size", "1.3em")
+                .style("text-anchor", "end")
+                .text("time(s)");
+
+            svg.append("g")
+                .attr("class", "y axis")
+                .attr("transform", "translate(" + height + ",-180px)")
+                .style("text-anchor", "end")
+                .call(yAxis)
+                .append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -40)
+                .attr("dy", ".41em")
+                .attr("font-size", "1.3em")
+                .style("text-anchor", "end")
+                .text("CPU%");
+
+            svg.append("path")
+                .datum(data)
+                .attr("class", "line")
+                .attr("d", line);
+        }
+
+        // Start
+        // update();
     </script>
 </body>
 
