@@ -5,12 +5,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=320" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <title>Gauge</title>
+    <title>Performance Monitoring</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css">
     <script type="text/javascript" src="http://d3js.org/d3.v2.min.js"></script>
     <script src="http://d3js.org/d3.v3.min.js"></script>
     <style>
         body {
-            font-family: Helvetica, Arial, sans-serif;
+            /* font-family: Helvetica, Arial, sans-serif; */
             margin: 32px;
         }
 
@@ -54,18 +55,23 @@
 </head>
 
 <body>
-    <div>
-        <div id="cpu-line-chart">
-            <svg id="cpu"></svg>
-            CPU Line Chart
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-4">
+                <div id="power-gauge-cpuutil">
+                    <p>CPU Utilization</p>
+                </div>
+                <div id="power-gauge-ramutil">
+                    <p>RAM Utilization</p>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div id="cpu-line-chart">
+                    <svg id="cpu"></svg>
+                </div>
+                <p>CPU Line Chart</p>
+            </div>
         </div>
-        <div id="power-gauge-ramutil">
-            <p>RAM Utilization</p>
-        </div>
-        <div id="power-gauge-cpuutil">
-            <p>CPU Utilization</p>
-        </div>
-
     </div>
 
 
@@ -338,7 +344,8 @@
 
     <script>
         var timeoutId = 0;
-        var data = [];
+        var data = [],
+            ramData = [];
 
         var margin = {
                 top: 20,
@@ -346,7 +353,7 @@
                 bottom: 30,
                 left: 50
             },
-            width = 1000 - margin.left - margin.right,
+            width = 800 - margin.left - margin.right,
             height = 500 - margin.top - margin.bottom;
 
         var parseDate = d3.time.format("%H:%M:%S").parse;
@@ -376,6 +383,14 @@
                 return y(d.cpuTime);
             });
 
+        // var ramLine = d3.svg.line()
+        //     .x(function (d) {
+        //         return x(d.creatTime);
+        //     })
+        //     .y(function (d) {
+        //         return y(d.cpuTime);
+        //     });
+
         // function
 
         function myGetTime() {
@@ -384,10 +399,6 @@
             var mm = dd.getMinutes();
             var ss = dd.getSeconds();
             return hh + ":" + mm + ":" + ss;
-        }
-
-        function getRandomArbitrary(min, max) {
-            return Math.round(Math.random() * (max - min) + min) - 1;
         }
 
         function getTime(data, d) {
@@ -402,17 +413,17 @@
         }
 
         var socket = io.connect('http://localhost:8001');
+
         socket.on('cpuUtil', function (d) {
             getTime(data, d);
-            render();
-            // updateCpuUtil(data);
+            render();;
         })
-
-        // function update() {
-        //     getTime(data);
-        //     render();
-        //     timeoutId = setTimeout("update()", 1000);
-        // }
+        
+        socket.on('ramUtil', function (d) {
+            getTime(ramData, d);
+            console.log(d)
+            render();
+        })
 
         function render() {
 
@@ -433,6 +444,21 @@
                 }
 
             });
+
+            data.forEach(function (d) {
+                if (typeof d.creatTime === "string") {
+                    d.cpuTime = +d.cpuTime;
+                    d.creatTime = parseDate(d.creatTime);
+                }
+
+            });
+
+            // x.domain(d3.extent(ramData, function (d) {
+            //     return d.creatTime;
+            // }));
+            // y.domain(d3.extent(ramData, function (d) {
+            //     return d.cpuTime;
+            // }));
 
             x.domain(d3.extent(data, function (d) {
                 return d.creatTime;
@@ -456,7 +482,7 @@
 
             svg.append("g")
                 .attr("class", "y axis")
-                .attr("transform", "translate(" + height + ",-180px)")
+                // .attr("transform", "translate(" + height + ",-180px)")
                 .style("text-anchor", "end")
                 .call(yAxis)
                 .append("text")
@@ -471,6 +497,11 @@
                 .datum(data)
                 .attr("class", "line")
                 .attr("d", line);
+
+            // svg.append("path")
+            //     .datum(data)
+            //     .attr("class", "line")
+            //     .attr("d", cpuLine);
         }
 
         // Start

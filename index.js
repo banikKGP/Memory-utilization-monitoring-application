@@ -15,7 +15,7 @@ app.get('/', function (req, res) {
     res.sendFile(__dirname + '/index.html');
 });
 
-util.trackRamUtilization();
+// util.trackRamUtilization();
 
 io.on('connection', function (socket) {
     try {
