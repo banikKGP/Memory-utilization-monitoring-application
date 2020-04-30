@@ -4,7 +4,7 @@ An web application to monitor CPU & RAM utilization
 
 ## Getting Started
 
-You can download the zip and unzip to check the code.
+Clone the code from the repository or download the zip
 
 ### Prerequisites
 
